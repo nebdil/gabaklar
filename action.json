@@ -1,0 +1,25 @@
+{
+  "actions": [
+    {
+      "description": "Default Welcome Intent",
+      "name": "MAIN",
+      "fulfillment": {
+        "conversationName": "fulfillmentFunction"
+      },
+      "intent": {
+        "name": "actions.intent.MAIN",
+        "trigger": {
+          "queryPatterns": [
+            "talk to gabaklar"
+          ]
+        }
+      }
+    }
+  ],
+  "conversations": {
+    "fulfillmentFunction": {
+      "name": "fulfillmentFunction",
+      "url": "https://us-central1-gabaklar-eef92.cloudfunctions.net/main"
+    }
+  }
+}
