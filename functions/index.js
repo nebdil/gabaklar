@@ -2,6 +2,10 @@
 
 // Firebase SDK for the fulfillment
 const functions = require('firebase-functions');
+// Initialize Cloud Firebase
+const admin = require('firebase-admin');
+admin.initializeApp(functions.config().firebase);
+var db = admin.firestore();
 
 // Import the Dialogflow module and response creation dependencies from the 
 // Actions on Google client library.
@@ -16,57 +20,45 @@ const {
 const app = dialogflow({ debug: true });
 
 // Handle the Dialogflow intent named 'Default Welcome Intent'.
+// This is the MAIN intent, the user will get this every time they explicitly invoke the action.
 app.intent('Default Welcome Intent', (conv) => {
-    // TODO: fallback
-    const name = conv.user.storage.userName;
-    if (!name) {
-        // Asks the user's permission to know their name, for personalization.
-        conv.ask(new Permission({
-            context: 'Hi there, to get to know you better',
-            permissions: 'NAME',
+    // If returning user, get their name
+    const returningUser = conv.user.storage.returningUser;
+    if (!returningUser) {
+        conv.user.storage.returningUser = true;
+        // Asks the user's permission to know their location
+        conv.data.requestedPermission = 'DEVICE_PRECISE_LOCATION';
+        return conv.ask(new Permission({
+            context: `Hi there! I am here to help you with wind directions and speeds while you are sailing! I know you must be very busy with tacking and jibing, so let's get to it! In order to better help you`,
+            permissions: conv.data.requestedPermission,
         }));
     } else {
-        conv.ask(`Thanks, ${name}. What's the location you're looking to get the wind speed of?`);
-        conv.ask(new Suggestions('Montreal', 'Toronto', 'Ottawa'));    }
+        // Asks the user's permission to know their location
+        conv.data.requestedPermission = 'DEVICE_PRECISE_LOCATION';
+        return conv.ask(new Permission({
+            context: `Welcome back! To locate you`,
+            permissions: conv.data.requestedPermission,
+        }));
+    }
 });
 
-// Handle the Dialogflow intent named 'actions_intent_PERMISSION'. If user
-// agreed to PERMISSION prompt, then boolean value 'permissionGranted' is true.
-app.intent('actions_intent_PERMISSION', (conv, params, permissionGranted) => {
+// Handle the Dialogflow intent named 'actions_intent_PERMISSION'. If user agreed to PERMISSION prompt, then boolean value 'permissionGranted' is true.
+app.intent(['actions_intent_PERMISSION', 'wind - yes'], (conv, params, permissionGranted) => {
+    // If the user does not want the action to know their location
     if (!permissionGranted) {
-        conv.ask(`Ok, no worries. What's the location you're looking to get the wind speed of?`);
-        conv.ask(new Suggestions('Montreal', 'Toronto', 'Ottawa'));
+        conv.close(`I'm sorry that you do not want to share your location with me, but I cannot help you if you don't! I'm here if you change your mind, bye now!`);
     } else {
-        // The conv.user.storage object is a data structure provided by the client library for in-dialog storage. You can set and manipulate the properties on this object throughout the duration of the conversation for this user.
-        conv.user.storage.userName = conv.user.name.display;
-        conv.ask(`Thanks, ${conv.user.storage.userName}. What's the location you're looking to get the wind speed of?`);
-        conv.ask(new Suggestions('Montreal', 'Toronto', 'Ottawa'));
-    }
-});
-
-// Handle the Dialogflow intent named 'location'.
-// The intent collects a parameter named 'location'
-app.intent(['location', 'location - wind - yes'], (conv, {
-            location
-        }) => {
-    // TODO: fallback
-    const city = location.city;
-    if (conv.user.storage.userName) {
-        // If we collected user name previously, address them by name
-        conv.ask(`${conv.user.storage.userName}, would you like to know about the wind speed or wind direction in ${city}?`);
-        conv.ask(new Suggestions('Speed', 'Direction'));
-    } else {
-        conv.ask(`Would you like to know about the wind speed or wind direction in ${city}?`);
+        // If the user gave permission for the action to know their location
+        conv.ask(`Would you like to know about the wind speed or wind direction today?`);
         conv.ask(new Suggestions('Speed', 'Direction'));
     }
 });
 
-// Handle the Dialogflow follow up intent named 'location - wind'.
-app.intent('location - wind', (conv, { windDetail }) => {
+// Handle the Dialogflow follow up intent named 'wind'.
+app.intent('wind', (conv, { windDetail }) => {
     // windDetail entity has speed and direction
-    // TODO: fallback
-    conv.ask(`You wanted to know about ${windDetail}`);
-    conv.ask('Do you want to hear more about the wind?');
+    conv.ask(`You wanted to know about ${windDetail}.`);
+    conv.ask('Do you still want to hear more about the wind?');
     conv.ask(new Suggestions('Yes', 'No'));
 });
 
