@@ -53,7 +53,7 @@ app.intent(['actions_intent_PERMISSION', 'wind - yes'], (conv, params, permissio
     } else {
         // Got the permission, get data and save it
         // TODO: cannot make an API request to outside of the google ecosystem, because not a paid plan
-        // return axios.get(`http://api.openweathermap.org/data/2.5/weather?lat=${conv.device.location.coordinates.latitude}&lon=${conv.device.location.coordinates.longitude}&appid=eb397c7514f55f954328ed87b4e8540f`)
+        // return axios.get(`http://api.openweathermap.org/data/2.5/weather?lat=${conv.device.location.coordinates.latitude}&lon=${conv.device.location.coordinates.longitude}&appid=`)
         // .then(function (response) {
         //     // handle success
         //     conv.user.storage.weather = JSON.parse(response);
