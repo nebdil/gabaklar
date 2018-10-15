@@ -1,5 +1,8 @@
 'use strict';
 
+require('dotenv').config()
+const axios = require('axios');
+
 // Firebase SDK for the fulfillment
 const functions = require('firebase-functions');
 // Initialize Cloud Firebase
@@ -48,7 +51,20 @@ app.intent(['actions_intent_PERMISSION', 'wind - yes'], (conv, params, permissio
     if (!permissionGranted) {
         conv.close(`I'm sorry that you do not want to share your location with me, but I cannot help you if you don't! I'm here if you change your mind, bye now!`);
     } else {
-        // If the user gave permission for the action to know their location
+        // Got the permission, get data and save it
+        // TODO: cannot make an API request to outside of the google ecosystem, because not a paid plan
+        // return axios.get(`http://api.openweathermap.org/data/2.5/weather?lat=${conv.device.location.coordinates.latitude}&lon=${conv.device.location.coordinates.longitude}&appid=eb397c7514f55f954328ed87b4e8540f`)
+        // .then(function (response) {
+        //     // handle success
+        //     conv.user.storage.weather = JSON.parse(response);
+        //     conv.ask(`Would you like to know about the wind speed or wind direction today?`);
+        //     conv.ask(new Suggestions('Speed', 'Direction'));
+        // })
+        // .catch(function (error) {
+        //     // handle error
+        //     conv.close('something wrong with the api call')
+        //     console.log('error:', error);
+        // })
         conv.ask(`Would you like to know about the wind speed or wind direction today?`);
         conv.ask(new Suggestions('Speed', 'Direction'));
     }
@@ -57,9 +73,18 @@ app.intent(['actions_intent_PERMISSION', 'wind - yes'], (conv, params, permissio
 // Handle the Dialogflow follow up intent named 'wind'.
 app.intent('wind', (conv, { windDetail }) => {
     // windDetail entity has speed and direction
-    conv.ask(`You wanted to know about ${windDetail}.`);
-    conv.ask('Do you still want to hear more about the wind?');
-    conv.ask(new Suggestions('Yes', 'No'));
+    if (windDetail === 'speed') {
+        conv.ask(`Current wind speed is BLANK knots. Do you still want to hear more about the wind?`);
+        // conv.ask(`Current wind speed is ${conv.user.storage.weather.speed} knots. Do you still want to hear more about the wind?`);
+        conv.ask(new Suggestions('Yes', 'No'));
+    } else if (windDetail === 'direction') {
+        // TODO: format direction
+        conv.ask(`Current wind direction is BLANK degrees. Do you still want to hear more about the wind?`);
+        // conv.ask(`Current wind direction is ${conv.user.storage.weather.deg} degrees. Do you still want to hear more about the wind?`);
+        conv.ask(new Suggestions('Yes', 'No'));
+    } else {
+        conv.close(`Sorry, I couldn't understand. Try again later please!`);
+    }
 });
 
 // Handle the Dialogflow NO_INPUT intent.
