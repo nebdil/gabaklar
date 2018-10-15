@@ -1,0 +1,13 @@
+wind - wind - no
+
+#me
+wind_input
+
+#bot
+!INCOMPREHENSION
+
+#me
+wind-no_input
+
+#bot
+wind-no_output_0
