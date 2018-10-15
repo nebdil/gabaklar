@@ -8,7 +8,9 @@ const functions = require('firebase-functions');
 // Initialize Cloud Firebase
 const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);
-var db = admin.firestore();
+const db = admin.firestore();
+const contentRef = db.collection('content');
+let content = '';
 
 // Import the Dialogflow module and response creation dependencies from the 
 // Actions on Google client library.
@@ -22,6 +24,8 @@ const {
 // Instantiate the Dialogflow client.
 const app = dialogflow({ debug: true });
 
+//TODO: REFACTOR ALL TOGETHER
+
 // Handle the Dialogflow intent named 'Default Welcome Intent'.
 // This is the MAIN intent, the user will get this every time they explicitly invoke the action.
 app.intent('Default Welcome Intent', (conv) => {
@@ -31,25 +35,56 @@ app.intent('Default Welcome Intent', (conv) => {
         conv.user.storage.returningUser = true;
         // Asks the user's permission to know their location
         conv.data.requestedPermission = 'DEVICE_PRECISE_LOCATION';
-        return conv.ask(new Permission({
-            context: `Hi there! I am here to help you with wind directions and speeds while you are sailing! I know you must be very busy with tacking and jibing, so let's get to it! In order to better help you`,
-            permissions: conv.data.requestedPermission,
-        }));
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                // console.log('==================: ', doc.data()['Default Welcome Intent']['new_user']);
+                content = doc.data()['Default Welcome Intent']['new_user'];
+            });
+            return conv.ask(new Permission({
+                context: content,
+                permissions: conv.data.requestedPermission,
+            }));
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     } else {
         // Asks the user's permission to know their location
         conv.data.requestedPermission = 'DEVICE_PRECISE_LOCATION';
-        return conv.ask(new Permission({
-            context: `Welcome back! To locate you`,
-            permissions: conv.data.requestedPermission,
-        }));
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['Default Welcome Intent']['returning_user'];
+            });
+            return conv.ask(new Permission({
+                context: content,
+                permissions: conv.data.requestedPermission,
+            }));
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     }
 });
 
 // Handle the Dialogflow intent named 'actions_intent_PERMISSION'. If user agreed to PERMISSION prompt, then boolean value 'permissionGranted' is true.
-app.intent(['actions_intent_PERMISSION', 'wind - yes'], (conv, params, permissionGranted) => {
+app.intent('actions_intent_PERMISSION', (conv, params, permissionGranted) => {
     // If the user does not want the action to know their location
     if (!permissionGranted) {
-        conv.close(`I'm sorry that you do not want to share your location with me, but I cannot help you if you don't! I'm here if you change your mind, bye now!`);
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['actions_intent_PERMISSION']['not_granted'];
+            });
+            return conv.close(new Permission({
+                context: content,
+                permissions: conv.data.requestedPermission,
+            }));
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     } else {
         // Got the permission, get data and save it
         // TODO: cannot make an API request to outside of the google ecosystem, because not a paid plan
@@ -65,25 +100,78 @@ app.intent(['actions_intent_PERMISSION', 'wind - yes'], (conv, params, permissio
         //     conv.close('something wrong with the api call')
         //     console.log('error:', error);
         // })
-        conv.ask(`Would you like to know about the wind speed or wind direction today?`);
-        conv.ask(new Suggestions('Speed', 'Direction'));
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['actions_intent_PERMISSION']['granted'];
+            });
+            return conv.ask(new Permission({
+                context: content,
+                permissions: conv.data.requestedPermission
+            }));
+        })
+        .then(() => conv.ask(new Suggestions('Speed', 'Direction')))
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     }
+});
+// Handle the Dialogflow intent named 'wind - yes'
+app.intent('wind - yes', (conv, params, permissionGranted) => {
+    return contentRef.get()
+    .then(snapshot => {
+        snapshot.forEach(doc => {
+            content = doc.data()['wind - yes'];
+        });
+        conv.ask(content);
+        conv.ask(new Suggestions('Speed', 'Direction'));
+    })
+    .catch(err => {
+        console.log('Error getting documents', err);
+    });
 });
 
 // Handle the Dialogflow follow up intent named 'wind'.
 app.intent('wind', (conv, { windDetail }) => {
     // windDetail entity has speed and direction
+    // TODO: fix api call and ${conv.user.storage.weather.speed}
     if (windDetail === 'speed') {
-        conv.ask(`Current wind speed is BLANK knots. Do you still want to hear more about the wind?`);
-        // conv.ask(`Current wind speed is ${conv.user.storage.weather.speed} knots. Do you still want to hear more about the wind?`);
-        conv.ask(new Suggestions('Yes', 'No'));
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['wind']['speed'];
+            });
+            conv.ask(content);
+            conv.ask(new Suggestions('Yes', 'No'));
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     } else if (windDetail === 'direction') {
         // TODO: format direction
-        conv.ask(`Current wind direction is BLANK degrees. Do you still want to hear more about the wind?`);
-        // conv.ask(`Current wind direction is ${conv.user.storage.weather.deg} degrees. Do you still want to hear more about the wind?`);
-        conv.ask(new Suggestions('Yes', 'No'));
+        // TODO: fix api call and ${conv.user.storage.weather.deg}
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['wind']['direction'];
+            });
+            conv.ask(content);
+            conv.ask(new Suggestions('Yes', 'No'));
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     } else {
-        conv.close(`Sorry, I couldn't understand. Try again later please!`);
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['wind']['fallback'];
+            });
+            conv.close(content);
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     }
 });
 
@@ -93,12 +181,38 @@ app.intent('actions_intent_NO_INPUT', (conv) => {
     // Use the number of reprompts to vary response
     const repromptCount = parseInt(conv.arguments.get('REPROMPT_COUNT'));
     if (repromptCount === 0) {
-        conv.ask('Would you like to know about wind speed or wind direction?');
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['actions_intent_NO_INPUT']['0'];
+            });
+            conv.ask(content);
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     } else if (repromptCount === 1) {
-        conv.ask(`Wind speed or wind direction?`);
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['actions_intent_NO_INPUT']['1'];
+            });
+            conv.ask(content);
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     } else if (conv.arguments.get('IS_FINAL_REPROMPT')) {
-        conv.close(`Sorry we're having trouble. Let's ` +
-            `try this again later. Goodbye.`);
+        return contentRef.get()
+        .then(snapshot => {
+            snapshot.forEach(doc => {
+                content = doc.data()['actions_intent_NO_INPUT']['IS_FINAL_REPROMPT'];
+            });
+            conv.close(content);
+        })
+        .catch(err => {
+            console.log('Error getting documents', err);
+        });
     }
 });
 
