@@ -2,6 +2,8 @@
 
 A Google Action that helps get information on the wind while sailing. It gets the wind speed and wind direction in your current location via the OpenWeatherMap API.
 
+![Design Diagram](/docs/diagram.png)
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes for the live demo.
