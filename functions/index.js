@@ -1,7 +1,7 @@
 'use strict';
 
 require('dotenv').config()
-const axios = require('axios');
+const request = require('request');
 
 // Firebase SDK for the fulfillment
 const functions = require('firebase-functions');
@@ -87,19 +87,21 @@ app.intent('actions_intent_PERMISSION', async (conv, params, permissionGranted) 
         // });
     } else {
         // Got the permission, get data and save it
-        // TODO: cannot make an API request to outside of the google ecosystem, because not a paid plan
-        // return axios.get(`http://api.openweathermap.org/data/2.5/weather?lat=${conv.device.location.coordinates.latitude}&lon=${conv.device.location.coordinates.longitude}&appid=`)
-        // .then(function (response) {
-        //     // handle success
-        //     conv.user.storage.weather = JSON.parse(response);
-        //     conv.ask(`Would you like to know about the wind speed or wind direction today?`);
-        //     conv.ask(new Suggestions('Speed', 'Direction'));
-        // })
-        // .catch(function (error) {
-        //     // handle error
-        //     conv.close('something wrong with the api call')
-        //     console.log('error:', error);
-        // })
+        const options = {
+            method: 'GET',
+            url: 'http://api.openweathermap.org/data/2.5/weather',
+            qs: {
+                lat: conv.device.location.coordinates.latitude,
+                lon: conv.device.location.coordinates.longitude,
+                appid: process.env.WEATHER_API_KEY
+            }
+        };
+
+        await request(options, function (error, response, body) {
+            if (error) throw new Error(error);
+            conv.user.storage.weather = body;
+        });
+
         await contentRef.doc(process.env.PERMISSION).get()
         .then(doc => {
             if (!doc.exists) {
@@ -119,7 +121,6 @@ app.intent('actions_intent_PERMISSION', async (conv, params, permissionGranted) 
 // Handle the Dialogflow follow up intent named 'wind'.
 app.intent('wind', async (conv, { windDetail }) => {
     // windDetail entity has speed and direction
-    // TODO: fix api call and ${conv.user.storage.weather.speed}
     if (windDetail === 'speed') {
         await contentRef.doc(process.env.WIND).get()
         .then(doc => {
@@ -127,7 +128,7 @@ app.intent('wind', async (conv, { windDetail }) => {
                 console.log('No such document!');
                 conv.close(ASSISTANT_ERROR);
             } else {
-                conv.ask(doc.data()['wind']['speed']);
+                conv.ask(JSON.parse(conv.user.storage.weather).wind.speed + doc.data()['wind']['speed']);
                 conv.ask(new Suggestions('Yes', 'No'));
             }
         })
@@ -136,14 +137,13 @@ app.intent('wind', async (conv, { windDetail }) => {
         });
     } else if (windDetail === 'direction') {
         // TODO: format direction
-        // TODO: fix api call and ${conv.user.storage.weather.deg}
         await contentRef.doc(process.env.WIND).get()
         .then(doc => {
             if (!doc.exists) {
                 console.log('No such document!');
                 conv.close(ASSISTANT_ERROR);
             } else {
-                conv.ask(doc.data()['wind']['direction']);
+                conv.ask(JSON.parse(conv.user.storage.weather).wind.deg + doc.data()['wind']['direction']);
                 conv.ask(new Suggestions('Yes', 'No'));
             }
         })

@@ -29,6 +29,7 @@ Open up another shell and run ngrok:
 ngrok http 5000
 ```
 TODO: instructions for DialogFlow
+https://342dc324.ngrok.io/gabaklar-eef92/us-central1/dialogflowFirebaseFulfillment
 
 ## Tests
 Tests are conducted by botium: https://www.botium.at/
