@@ -31,14 +31,24 @@ Open up another shell and run ngrok:
 ngrok http 5000
 ```
 TODO: instructions for DialogFlow
-https://342dc324.ngrok.io/gabaklar-eef92/us-central1/dialogflowFirebaseFulfillment
+https://85574436.ngrok.io/gabaklar-eef92/us-central1/dialogflowFirebaseFulfillment
 
 ## Tests
-Tests are conducted by botium: https://www.botium.at/
-TODO: https://github.com/actions-on-google/actions-on-google-testing-nodejs
+Tests are conducted by botium: https://www.botium.at/. Botium gets all the intents from DialogFlow and creates different utterances for each intent. Then tests each utterance to see if the correct intent is captured by DialogFlow.
 
 ## Deployment
 TODO: alpha version instructions
+https://us-central1-gabaklar-eef92.cloudfunctions.net/dialogflowFirebaseFulfillment
+
+### Extra Considerations
+* Add more flows, and make use of 'context'
+* Add tests for the function https://github.com/actions-on-google/actions-on-google-testing-nodejs (Alpha)
+* Further testing: Bespoken
+* Write a function to collect conversation transcripts
+* Add analytics, decide on KPIs
+* Add monitoring
+* Check out environment variables: https://firebase.google.com/docs/functions/config-env
+* Add Simple Response
 
 ## Authors
 
