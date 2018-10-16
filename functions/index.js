@@ -10,8 +10,7 @@ const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);
 const db = admin.firestore();
 const contentRef = db.collection('content');
-let content = '';
-
+const ASSISTANT_ERROR = 'I encountered a problem please check back later!';
 // Import the Dialogflow module and response creation dependencies from the 
 // Actions on Google client library.
 // Suggestions: suggestion chips a visual component that provides recommended text options that the user can tap on screened devices
@@ -28,63 +27,64 @@ const app = dialogflow({ debug: true });
 
 // Handle the Dialogflow intent named 'Default Welcome Intent'.
 // This is the MAIN intent, the user will get this every time they explicitly invoke the action.
-app.intent('Default Welcome Intent', (conv) => {
+app.intent('Default Welcome Intent', async (conv) => {
     // If returning user, get their name
     const returningUser = conv.user.storage.returningUser;
     if (!returningUser) {
         conv.user.storage.returningUser = true;
         // Asks the user's permission to know their location
-        conv.data.requestedPermission = 'DEVICE_PRECISE_LOCATION';
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                // console.log('==================: ', doc.data()['Default Welcome Intent']['new_user']);
-                content = doc.data()['Default Welcome Intent']['new_user'];
-            });
-            return conv.ask(new Permission({
-                context: content,
-                permissions: conv.data.requestedPermission,
-            }));
+        await contentRef.doc(process.env.DEFAULT_WELCOME_INTENT).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(new Permission({
+                    context: doc.data()['Default Welcome Intent']['new_user'],
+                    permissions: 'DEVICE_PRECISE_LOCATION',
+                }));
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     } else {
         // Asks the user's permission to know their location
-        conv.data.requestedPermission = 'DEVICE_PRECISE_LOCATION';
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['Default Welcome Intent']['returning_user'];
-            });
-            return conv.ask(new Permission({
-                context: content,
-                permissions: conv.data.requestedPermission,
-            }));
+        await contentRef.doc(process.env.DEFAULT_WELCOME_INTENT).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(new Permission({
+                    context: doc.data()['Default Welcome Intent']['returning_user'],
+                    permissions: 'DEVICE_PRECISE_LOCATION',
+                }));
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     }
 });
 
 // Handle the Dialogflow intent named 'actions_intent_PERMISSION'. If user agreed to PERMISSION prompt, then boolean value 'permissionGranted' is true.
-app.intent('actions_intent_PERMISSION', (conv, params, permissionGranted) => {
+app.intent('actions_intent_PERMISSION', async (conv, params, permissionGranted) => {
     // If the user does not want the action to know their location
     if (!permissionGranted) {
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['actions_intent_PERMISSION']['not_granted'];
-            });
-            return conv.close(new Permission({
-                context: content,
-                permissions: conv.data.requestedPermission,
-            }));
+        await contentRef.doc(process.env.PERMISSION).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['actions_intent_PERMISSION']['not_granted']);
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
+        // });
     } else {
         // Got the permission, get data and save it
         // TODO: cannot make an API request to outside of the google ecosystem, because not a paid plan
@@ -100,118 +100,132 @@ app.intent('actions_intent_PERMISSION', (conv, params, permissionGranted) => {
         //     conv.close('something wrong with the api call')
         //     console.log('error:', error);
         // })
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['actions_intent_PERMISSION']['granted'];
-            });
-            return conv.ask(new Permission({
-                context: content,
-                permissions: conv.data.requestedPermission
-            }));
+        await contentRef.doc(process.env.PERMISSION).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['actions_intent_PERMISSION']['granted']);
+                conv.ask(new Suggestions('Speed', 'Direction'));
+            }
         })
-        .then(() => conv.ask(new Suggestions('Speed', 'Direction')))
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     }
 });
-// Handle the Dialogflow intent named 'wind - yes'
-app.intent('wind - yes', (conv, params, permissionGranted) => {
-    return contentRef.get()
-    .then(snapshot => {
-        snapshot.forEach(doc => {
-            content = doc.data()['wind - yes'];
-        });
-        conv.ask(content);
-        conv.ask(new Suggestions('Speed', 'Direction'));
-    })
-    .catch(err => {
-        console.log('Error getting documents', err);
-    });
-});
 
 // Handle the Dialogflow follow up intent named 'wind'.
-app.intent('wind', (conv, { windDetail }) => {
+app.intent('wind', async (conv, { windDetail }) => {
     // windDetail entity has speed and direction
     // TODO: fix api call and ${conv.user.storage.weather.speed}
     if (windDetail === 'speed') {
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['wind']['speed'];
-            });
-            conv.ask(content);
-            conv.ask(new Suggestions('Yes', 'No'));
+        await contentRef.doc(process.env.WIND).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['wind']['speed']);
+                conv.ask(new Suggestions('Yes', 'No'));
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     } else if (windDetail === 'direction') {
         // TODO: format direction
         // TODO: fix api call and ${conv.user.storage.weather.deg}
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['wind']['direction'];
-            });
-            conv.ask(content);
-            conv.ask(new Suggestions('Yes', 'No'));
+        await contentRef.doc(process.env.WIND).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['wind']['direction']);
+                conv.ask(new Suggestions('Yes', 'No'));
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     } else {
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['wind']['fallback'];
-            });
-            conv.close(content);
+        await contentRef.doc(process.env.WIND).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['wind']['fallback']);
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     }
 });
 
+// Handle the Dialogflow intent named 'wind - yes'
+app.intent('wind - yes', async (conv, params, permissionGranted) => {
+    await contentRef.doc(process.env.WIND_YES).get()
+    .then(doc => {
+        if (!doc.exists) {
+            console.log('No such document!');
+            conv.close(ASSISTANT_ERROR);
+        } else {
+            conv.ask(doc.data()['wind - yes']);
+            conv.ask(new Suggestions('Speed', 'Direction'));
+        }
+    })
+    .catch(err => {
+        console.log('Error getting document', err);
+    });
+});
+
 // Handle the Dialogflow NO_INPUT intent.
 // Triggered when the user doesn't provide input to the Action
-app.intent('actions_intent_NO_INPUT', (conv) => {
+app.intent('actions_intent_NO_INPUT', async (conv) => {
     // Use the number of reprompts to vary response
     const repromptCount = parseInt(conv.arguments.get('REPROMPT_COUNT'));
     if (repromptCount === 0) {
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['actions_intent_NO_INPUT']['0'];
-            });
-            conv.ask(content);
+        await contentRef.doc(process.env.NO_INPUT).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['actions_intent_NO_INPUT']['0']);
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     } else if (repromptCount === 1) {
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['actions_intent_NO_INPUT']['1'];
-            });
-            conv.ask(content);
+        await contentRef.doc(process.env.NO_INPUT).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['actions_intent_NO_INPUT']['1']);
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     } else if (conv.arguments.get('IS_FINAL_REPROMPT')) {
-        return contentRef.get()
-        .then(snapshot => {
-            snapshot.forEach(doc => {
-                content = doc.data()['actions_intent_NO_INPUT']['IS_FINAL_REPROMPT'];
-            });
-            conv.close(content);
+        await contentRef.doc(process.env.NO_INPUT).get()
+        .then(doc => {
+            if (!doc.exists) {
+                console.log('No such document!');
+                conv.close(ASSISTANT_ERROR);
+            } else {
+                conv.ask(doc.data()['actions_intent_NO_INPUT']['IS_FINAL_REPROMPT']);
+            }
         })
         .catch(err => {
-            console.log('Error getting documents', err);
+            console.log('Error getting document', err);
         });
     }
 });

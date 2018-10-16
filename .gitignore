@@ -3,3 +3,5 @@ gactions
 functions/node_modules
 #dotenv
 functions/.env
+.env
+botium.json
