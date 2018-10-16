@@ -28,6 +28,7 @@ Open up another shell and run ngrok:
 ```
 ngrok http 5000
 ```
+TODO: instructions for DialogFlow
 
 ## Tests
 Tests are conducted by botium: https://www.botium.at/
