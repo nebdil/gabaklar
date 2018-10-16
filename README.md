@@ -29,8 +29,12 @@ Open up another shell and run ngrok:
 ngrok http 5000
 ```
 
+## Tests
+Tests are conducted by botium: https://www.botium.at/
+TODO: https://github.com/actions-on-google/actions-on-google-testing-nodejs
+
 ## Deployment
-TODO
+TODO: alpha version instructions
 
 ## Authors
 
